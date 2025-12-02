@@ -576,6 +576,28 @@ def main():
     # Filter stale PRs
     stale_prs = [pr for pr in open_prs if is_pr_stale(pr, stale_hours)]
     
+    # Sort PRs: most stale first, then PRs without reviewers first
+    def sort_key(pr):
+        # Calculate hours stale
+        updated_at_str = pr.get('updated_at', '')
+        if updated_at_str:
+            updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+            now = datetime.now(timezone.utc)
+            hours_stale = (now - updated_at).total_seconds() / 3600
+        else:
+            hours_stale = 0
+        
+        # Get reviewers
+        reviewers = get_pr_reviewers(owner, repo_name, pr.get('number'))
+        has_reviewers = len(reviewers) > 0
+        
+        # Return tuple: (has_reviewers, -hours_stale)
+        # False sorts before True, so PRs without reviewers come first
+        # Negative hours_stale means most stale (highest hours) comes first
+        return (has_reviewers, -hours_stale)
+    
+    stale_prs.sort(key=sort_key)
+    
     print(f"Found {len(stale_prs)} stale PRs")
     
     # Format and send message
