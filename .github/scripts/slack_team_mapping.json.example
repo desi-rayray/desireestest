@@ -1,0 +1,23 @@
+{
+  "_comment": "Map GitHub teams/users to Slack user group IDs or user IDs",
+  "_instructions": "Copy this file to slack_team_mapping.json and fill in your actual Slack IDs",
+  "_how_to_find_slack_ids": "See README.md for instructions on finding Slack user IDs",
+  
+  "_teams": "For GitHub teams, use the team slug (e.g., 'Back-End' not 'ocrfin/Back-End')",
+  "Back-End": "S12345678",
+  "Front-End": "S87654321",
+  "Cloud": "S11223344",
+  
+  "_users": "For GitHub users, map their GitHub username to their Slack user ID",
+  "desi-rayray": "U12345678",
+  "jeffnb": "U87654321",
+  "sphereiam": "U11223344",
+  
+  "_notes": [
+    "Slack user group IDs start with 'S'",
+    "Slack user IDs start with 'U'",
+    "To find Slack user IDs: Right-click user in Slack > View Profile > Copy Member ID",
+    "To find Slack group IDs: Slack Admin > User Groups > Select group > Copy ID from URL"
+  ]
+}
+

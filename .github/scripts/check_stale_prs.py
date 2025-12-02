@@ -300,9 +300,9 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
             prs_without_reviewers += 1
     
     # Build header message
-    header_text = f'⚠️ Stale {filter_text.capitalize()}PRs Alert ({len(stale_prs)} found)'
+    header_text = f'Stale {filter_text.capitalize()}PRs Alert ({len(stale_prs)} found)'
     if prs_without_reviewers > 0:
-        header_text += f' - 🚨 {prs_without_reviewers} without reviewers!'
+        header_text += f' - {prs_without_reviewers} without reviewers'
     
     blocks = [
         {
@@ -348,11 +348,15 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         if reviewers:
             for reviewer in reviewers:
                 if reviewer['type'] == 'user':
-                    reviewer_mentions.append(f'<@{reviewer["login"]}>')
+                    # Map GitHub username to Slack user ID
+                    slack_mention = map_github_to_slack(reviewer['login'], slack_mapping)
+                    reviewer_mentions.append(slack_mention)
                 elif reviewer['type'] == 'team':
-                    reviewer_mentions.append(f'@{reviewer["login"]}')
+                    # Map GitHub team to Slack group
+                    slack_mention = map_github_to_slack(reviewer['login'], slack_mapping)
+                    reviewer_mentions.append(slack_mention)
         
-        reviewer_text = ', '.join(reviewer_mentions) if reviewer_mentions else '⚠️ *No reviewers assigned*'
+        reviewer_text = ', '.join(reviewer_mentions) if reviewer_mentions else '*No reviewers assigned*'
         
         # Get CODEOWNERS for changed files
         codeowners_mentions = []
@@ -371,9 +375,7 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         codeowners_text = ', '.join(codeowners_mentions) if codeowners_mentions else 'No CODEOWNERS found'
         
         # Build PR block
-        # Add warning emoji if no reviewers
-        warning_prefix = '🚨 ' if not reviewers else ''
-        pr_text = f'{warning_prefix}*<{html_url}|PR #{pr_number}: {title}>*\n'
+        pr_text = f'*<{html_url}|PR #{pr_number}: {title}>*\n'
         # Format hours nicely - show days if >= 24 hours, otherwise show hours
         if hours_stale >= 24:
             days = int(hours_stale // 24)
