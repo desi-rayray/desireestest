@@ -356,7 +356,9 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         codeowners_text = ', '.join(codeowners_mentions) if codeowners_mentions else 'No CODEOWNERS found'
         
         # Build PR block
-        pr_text = f'*<{html_url}|PR #{pr_number}: {title}>*\n'
+        # Add warning emoji if no reviewers
+        warning_prefix = '🚨 ' if not reviewers else ''
+        pr_text = f'{warning_prefix}*<{html_url}|PR #{pr_number}: {title}>*\n'
         # Format hours nicely - show days if >= 24 hours, otherwise show hours
         if hours_stale >= 24:
             days = int(hours_stale // 24)
