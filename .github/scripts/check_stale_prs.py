@@ -282,13 +282,13 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
     
     if not stale_prs:
         return {
-            'text': f'✅ No stale {filter_text}PRs found in {repo_name}! All PRs are up to date.',
+            'text': f'No stale {filter_text}PRs found in {repo_name}! All PRs are up to date.',
             'blocks': [
                 {
                     'type': 'section',
                     'text': {
                         'type': 'mrkdwn',
-                        'text': f'✅ *No stale {filter_text}PRs found in {repo_name}!*\nAll PRs are up to date.'
+                        'text': f'*No stale {filter_text}PRs found in {repo_name}!*\nAll PRs are up to date.'
                     }
                 }
             ]
@@ -393,10 +393,6 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         
         # Build PR block in requested format
         pr_text = f'*<{html_url}|PR #{pr_number}: {title}>* | {author_slack_mention} Reviewers: {reviewer_text} | Stale: {stale_text}'
-        
-        # Add warning emoji if no reviewers
-        if not reviewers:
-            pr_text = '🚨 ' + pr_text
         
         blocks.append({
             'type': 'section',
