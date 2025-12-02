@@ -54,3 +54,7 @@ This repository is designed to:
 - Test Slack/GitHub repository integration
 - Create multiple pull requests for testing stale PR notifications
 - Demonstrate CODEOWNERS functionality with multiple directories
+# Test Feature for Stale PR Notifications
+
+This PR is created to test the stale PR notification workflow.
+It will become stale after the configured STALE_HOURS period.
