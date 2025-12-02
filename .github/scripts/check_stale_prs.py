@@ -377,8 +377,9 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         
         codeowners_text = ', '.join(codeowners_mentions) if codeowners_mentions else 'No CODEOWNERS found'
         
-        # Build PR block
-        pr_text = f'*<{html_url}|PR #{pr_number}: {title}>*\n'
+        # Map author to Slack
+        author_slack_mention = map_github_to_slack(author, slack_mapping)
+        
         # Format hours nicely - show days if >= 24 hours, otherwise show hours
         if hours_stale >= 24:
             days = int(hours_stale // 24)
@@ -389,9 +390,9 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
                 stale_text = f'{days}d'
         else:
             stale_text = f'{int(hours_stale)}h'
-        pr_text += f'Author: `{author}` | Stale: *{stale_text}*\n'
-        pr_text += f'Reviewers: {reviewer_text}\n'
-        pr_text += f'CODEOWNERS: {codeowners_text}'
+        
+        # Build PR block in requested format
+        pr_text = f'*<{html_url}|PR #{pr_number}: {title}>* | {author_slack_mention} Reviewers: {reviewer_text} | Stale: {stale_text}'
         
         # Add warning emoji if no reviewers
         if not reviewers:
