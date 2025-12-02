@@ -307,15 +307,8 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
     if prs_without_reviewers > 0:
         header_text += f' ({prs_without_reviewers} no reviewers)'
     
-    blocks = [
-        {
-            'type': 'section',
-            'text': {
-                'type': 'mrkdwn',
-                'text': header_text
-            }
-        }
-    ]
+    # Build all PR lines in a single block to avoid spacing
+    pr_lines = []
     
     for pr in stale_prs:
         pr_number = pr.get('number')
@@ -381,16 +374,22 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         else:
             stale_text = f'{int(hours_stale)}h'
         
-        # Build compact PR block (PR # and link only, no title)
-        pr_text = f'<{html_url}|#{pr_number}> | {author_slack_mention} | {reviewer_text} | {stale_text}h'
-        
-        blocks.append({
+        # Build compact PR line
+        pr_line = f'<{html_url}|#{pr_number}> | {author_slack_mention} | {reviewer_text} | {stale_text}h'
+        pr_lines.append(pr_line)
+    
+    # Combine header and all PRs in a single block
+    combined_text = header_text + '\n' + '\n'.join(pr_lines)
+    
+    blocks = [
+        {
             'type': 'section',
             'text': {
                 'type': 'mrkdwn',
-                'text': pr_text
+                'text': combined_text
             }
-        })
+        }
+    ]
     
     return {
         'text': f'Found {len(stale_prs)} stale PRs in {repo_name}',
