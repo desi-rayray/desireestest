@@ -273,36 +273,51 @@ def is_pr_stale(pr: Dict, stale_hours: float) -> bool:
     return hours_since_update >= stale_hours
 
 
-def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: str, owner: str, repo: str, codeowners_rules: List[Tuple[str, List[str]]], slack_mapping: Dict[str, str]) -> Dict:
+def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: str, owner: str, repo: str, codeowners_rules: List[Tuple[str, List[str]]], slack_mapping: Dict[str, str], filter_type: Optional[str] = None) -> Dict:
     """Format the message to send to Slack."""
+    filter_text = "backend " if filter_type == "backend" else "frontend " if filter_type == "frontend" else ""
+    
     if not stale_prs:
         return {
-            'text': f'✅ No stale PRs found in {repo_name}! All PRs are up to date.',
+            'text': f'✅ No stale {filter_text}PRs found in {repo_name}! All PRs are up to date.',
             'blocks': [
                 {
                     'type': 'section',
                     'text': {
                         'type': 'mrkdwn',
-                        'text': f'✅ *No stale PRs found in {repo_name}!*\nAll PRs are up to date.'
+                        'text': f'✅ *No stale {filter_text}PRs found in {repo_name}!*\nAll PRs are up to date.'
                     }
                 }
             ]
         }
+    
+    # Count PRs without reviewers
+    prs_without_reviewers = 0
+    for pr in stale_prs:
+        owner, repo = get_repo_info()
+        reviewers = get_pr_reviewers(owner, repo, pr.get('number'))
+        if not reviewers:
+            prs_without_reviewers += 1
+    
+    # Build header message
+    header_text = f'⚠️ Stale {filter_text.capitalize()}PRs Alert ({len(stale_prs)} found)'
+    if prs_without_reviewers > 0:
+        header_text += f' - 🚨 {prs_without_reviewers} without reviewers!'
     
     blocks = [
         {
             'type': 'header',
             'text': {
                 'type': 'plain_text',
-                'text': f'⚠️ Stale PRs Alert ({len(stale_prs)} found)'
+                'text': header_text
             }
         },
         {
             'type': 'section',
-                'text': {
-                    'type': 'mrkdwn',
-                    'text': f'Found *{len(stale_prs)}* PR{"s" if len(stale_prs) != 1 else ""} in `{repo_name}` that {"have" if len(stale_prs) != 1 else "has"} not been updated in {stale_hours}+ hours.'
-                }
+            'text': {
+                'type': 'mrkdwn',
+                'text': f'Found *{len(stale_prs)}* {filter_text}PR{"s" if len(stale_prs) != 1 else ""} in `{repo_name}` that {"have" if len(stale_prs) != 1 else "has"} not been updated in {stale_hours}+ hours.'
+            }
         },
         {
             'type': 'divider'
@@ -337,7 +352,7 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
                 elif reviewer['type'] == 'team':
                     reviewer_mentions.append(f'@{reviewer["login"]}')
         
-        reviewer_text = ', '.join(reviewer_mentions) if reviewer_mentions else 'No reviewers assigned'
+        reviewer_text = ', '.join(reviewer_mentions) if reviewer_mentions else '⚠️ *No reviewers assigned*'
         
         # Get CODEOWNERS for changed files
         codeowners_mentions = []
@@ -372,6 +387,10 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         pr_text += f'Author: `{author}` | Stale: *{stale_text}*\n'
         pr_text += f'Reviewers: {reviewer_text}\n'
         pr_text += f'CODEOWNERS: {codeowners_text}'
+        
+        # Add warning emoji if no reviewers
+        if not reviewers:
+            pr_text = '🚨 ' + pr_text
         
         blocks.append({
             'type': 'section',
@@ -433,6 +452,87 @@ def load_slack_mapping() -> Dict[str, str]:
     return {}
 
 
+def filter_prs_by_type(prs: List[Dict], filter_type: Optional[str], codeowners_rules: List[Tuple[str, List[str]]], owner: str, repo: str) -> List[Dict]:
+    """
+    Filter PRs by backend/frontend based on changed files and CODEOWNERS.
+    Returns PRs that match the filter type.
+    """
+    if not filter_type:
+        return prs
+    
+    filtered_prs = []
+    
+    # Define backend and frontend patterns based on CODEOWNERS
+    backend_patterns = [
+        '/smartfp/', '/insurance/', '/tests/', '/scripts/', '/.docker/', 
+        '/notebooks/', '/insurance/soap/', '/lambdas/', '/common/',
+        '*.py', 'requirements.txt', '/.github/pylint.toml'
+    ]
+    
+    frontend_patterns = [
+        '/smartfp/parcel_src/', '/smartfp/static/', '/finbot/static/',
+        '/marketing_toolkit_files/', '*.html', '*.css', '*.scss', 
+        '*.js', '*.vue', '*.map', '*.svg', '*.png', 
+        'package.json', 'package-lock.json'
+    ]
+    
+    patterns = backend_patterns if filter_type == 'backend' else frontend_patterns
+    
+    for pr in prs:
+        pr_number = pr.get('number')
+        try:
+            changed_files = get_pr_files(owner, repo, pr_number)
+            
+            # Check if any changed file matches the patterns
+            matches = False
+            for file_path in changed_files:
+                normalized_path = file_path.lstrip('/')
+                
+                # Check against file patterns
+                for pattern in patterns:
+                    if pattern.startswith('/'):
+                        if normalized_path.startswith(pattern[1:]):
+                            matches = True
+                            break
+                    elif pattern.startswith('*'):
+                        # File extension pattern
+                        if normalized_path.endswith(pattern[1:]):
+                            matches = True
+                            break
+                    else:
+                        if pattern in normalized_path:
+                            matches = True
+                            break
+                
+                if matches:
+                    break
+            
+            # Also check CODEOWNERS if patterns didn't match
+            if not matches and codeowners_rules:
+                codeowners = get_codeowners_for_files(changed_files, codeowners_rules)
+                # Check if CODEOWNERS match the filter type
+                # CODEOWNERS format: '@ocrfin/Back-End', '@ocrfin/Front-End', '@ocrfin/Cloud'
+                if filter_type == 'backend':
+                    backend_teams = ['Back-End', 'Cloud', 'ocrfin/Back-End', 'ocrfin/Cloud']
+                    codeowners_str = ' '.join(codeowners)
+                    if any(team in codeowners_str for team in backend_teams):
+                        matches = True
+                elif filter_type == 'frontend':
+                    frontend_teams = ['Front-End', 'ocrfin/Front-End']
+                    codeowners_str = ' '.join(codeowners)
+                    if any(team in codeowners_str for team in frontend_teams):
+                        matches = True
+            
+            if matches:
+                filtered_prs.append(pr)
+        except Exception as e:
+            print(f"Warning: Could not filter PR #{pr_number}: {e}", file=sys.stderr)
+            # If filtering fails, include the PR to be safe
+            filtered_prs.append(pr)
+    
+    return filtered_prs
+
+
 def main():
     """Main function to check for stale PRs and notify Slack."""
     # Get configuration from environment
@@ -445,6 +545,7 @@ def main():
         stale_hours = stale_days * 24  # Convert days to hours
     
     webhook_url = os.environ.get('SLACK_WEBHOOK_URL')
+    filter_type = os.environ.get('FILTER_TYPE')  # 'backend', 'frontend', or None
     
     if not webhook_url:
         print("Error: SLACK_WEBHOOK_URL environment variable is required", file=sys.stderr)
@@ -478,13 +579,19 @@ def main():
         print(f"Error fetching PRs: {e}", file=sys.stderr)
         sys.exit(1)
     
+    # Filter by type (backend/frontend) if specified
+    if filter_type:
+        print(f"Filtering for {filter_type} PRs...")
+        open_prs = filter_prs_by_type(open_prs, filter_type, codeowners_rules, owner, repo_name)
+        print(f"Found {len(open_prs)} {filter_type} PRs")
+    
     # Filter stale PRs
     stale_prs = [pr for pr in open_prs if is_pr_stale(pr, stale_hours)]
     
     print(f"Found {len(stale_prs)} stale PRs")
     
     # Format and send message
-    message = format_slack_message(stale_prs, stale_hours, repo_name, owner, repo_name, codeowners_rules, slack_mapping)
+    message = format_slack_message(stale_prs, stale_hours, repo_name, owner, repo_name, codeowners_rules, slack_mapping, filter_type)
     
     if post_to_slack(webhook_url, message):
         print("Successfully posted to Slack!")
