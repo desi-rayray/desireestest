@@ -349,7 +349,7 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
                     slack_mention = map_github_to_slack(reviewer['login'], slack_mapping)
                     reviewer_mentions.append(slack_mention)
         
-        reviewer_text = ', '.join(reviewer_mentions) if reviewer_mentions else '*No reviewers assigned*'
+        reviewer_text = ', '.join(reviewer_mentions) if reviewer_mentions else 'No reviewers'
         
         # Get CODEOWNERS for changed files
         codeowners_mentions = []
@@ -390,10 +390,6 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
                 'type': 'mrkdwn',
                 'text': pr_text
             }
-        })
-        
-        blocks.append({
-            'type': 'divider'
         })
     
     return {
