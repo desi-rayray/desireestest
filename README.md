@@ -1,8 +1,5 @@
 # Stale PR Notifications Setup Guide
 
-**Document Version**: 1.0  
-**Last Updated**: December 2024  
-**For**: IT/DevOps Team
 
 ## Overview
 
