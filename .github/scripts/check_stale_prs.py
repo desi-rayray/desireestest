@@ -178,7 +178,13 @@ def map_github_to_slack(github_owner: str, slack_mapping: Dict[str, str]) -> str
         # If it's already a Slack ID format, return as-is
         if slack_id.startswith('<!subteam^') or slack_id.startswith('<@'):
             return slack_id
-        # Otherwise assume it's a user group name
+        # Check if it's a Slack user ID (starts with U)
+        if slack_id.startswith('U'):
+            return f'<@{slack_id}>'
+        # Otherwise assume it's a user group ID (starts with S)
+        if slack_id.startswith('S'):
+            return f'<!subteam^{slack_id}>'
+        # Fallback: treat as user group ID
         return f'<!subteam^{slack_id}|{owner_key}>'
     
     # Check for team format (org/team-name)
