@@ -1,0 +1,39 @@
+name: Weekly Stale PR Notifications
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC (adjust timezone as needed)
+    # Format: minute hour day-of-month month day-of-week
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  notify-stale-prs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      
+      - name: Install dependencies
+        run: |
+          pip install requests python-dateutil
+      
+      - name: Check for stale PRs and notify Slack
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          STALE_DAYS: ${{ vars.STALE_DAYS || '3' }}  # Default to 3 days, can be overridden
+          SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL || '#engineering' }}  # Default channel
+        run: |
+          python .github/scripts/check_stale_prs.py
+
