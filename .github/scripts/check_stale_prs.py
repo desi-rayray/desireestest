@@ -189,15 +189,12 @@ def map_github_to_slack(github_owner: str, slack_mapping: Dict[str, str]) -> str
             slack_id = slack_mapping[team]
             if slack_id.startswith('<!subteam^') or slack_id.startswith('<@'):
                 return slack_id
+            if slack_id.startswith('S'):
+                return f'<!subteam^{slack_id}>'
             return f'<!subteam^{slack_id}|{team}>'
-        # Fallback: try to format as Slack group mention
-        # Convert team-name to team_name format
-        team_slug = team.lower().replace('-', '_')
-        return f'<!subteam^ID|{team_slug}>'  # Placeholder format
     
-    # For individual users, try to mention them
-    # This assumes GitHub username matches Slack username (may need adjustment)
-    return f'<@{owner_key}>'
+    # Fallback: return GitHub username/team as plain text
+    return f'@{owner_key}'
 
 
 def fetch_open_prs(owner: str, repo: str) -> List[Dict]:
