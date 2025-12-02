@@ -259,7 +259,7 @@ def get_pr_reviewers(owner: str, repo: str, pr_number: int) -> List[Dict]:
         return []
 
 
-def is_pr_stale(pr: Dict, stale_days: int) -> bool:
+def is_pr_stale(pr: Dict, stale_hours: float) -> bool:
     """Check if a PR is stale based on last update time."""
     updated_at_str = pr.get('updated_at')
     if not updated_at_str:
@@ -267,12 +267,13 @@ def is_pr_stale(pr: Dict, stale_days: int) -> bool:
     
     updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
     now = datetime.now(timezone.utc)
-    days_since_update = (now - updated_at).days
+    time_since_update = now - updated_at
+    hours_since_update = time_since_update.total_seconds() / 3600
     
-    return days_since_update >= stale_days
+    return hours_since_update >= stale_hours
 
 
-def format_slack_message(stale_prs: List[Dict], stale_days: int, repo_name: str, owner: str, repo: str, codeowners_rules: List[Tuple[str, List[str]]], slack_mapping: Dict[str, str]) -> Dict:
+def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: str, owner: str, repo: str, codeowners_rules: List[Tuple[str, List[str]]], slack_mapping: Dict[str, str]) -> Dict:
     """Format the message to send to Slack."""
     if not stale_prs:
         return {
@@ -298,10 +299,10 @@ def format_slack_message(stale_prs: List[Dict], stale_days: int, repo_name: str,
         },
         {
             'type': 'section',
-            'text': {
-                'type': 'mrkdwn',
-                'text': f'Found *{len(stale_prs)}* PR{"s" if len(stale_prs) != 1 else ""} in `{repo_name}` that {"have" if len(stale_prs) != 1 else "has"} not been updated in {stale_days}+ days.'
-            }
+                'text': {
+                    'type': 'mrkdwn',
+                    'text': f'Found *{len(stale_prs)}* PR{"s" if len(stale_prs) != 1 else ""} in `{repo_name}` that {"have" if len(stale_prs) != 1 else "has"} not been updated in {stale_hours}+ hours.'
+                }
         },
         {
             'type': 'divider'
@@ -315,13 +316,14 @@ def format_slack_message(stale_prs: List[Dict], stale_days: int, repo_name: str,
         author = pr.get('user', {}).get('login', 'Unknown')
         updated_at_str = pr.get('updated_at', '')
         
-        # Calculate days stale
+        # Calculate hours stale
         if updated_at_str:
             updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
             now = datetime.now(timezone.utc)
-            days_stale = (now - updated_at).days
+            time_since_update = now - updated_at
+            hours_stale = time_since_update.total_seconds() / 3600
         else:
-            days_stale = stale_days
+            hours_stale = stale_hours
         
         # Get reviewers
         reviewers = get_pr_reviewers(owner, repo, pr_number)
@@ -355,7 +357,17 @@ def format_slack_message(stale_prs: List[Dict], stale_days: int, repo_name: str,
         
         # Build PR block
         pr_text = f'*<{html_url}|PR #{pr_number}: {title}>*\n'
-        pr_text += f'Author: `{author}` | Days stale: *{days_stale}*\n'
+        # Format hours nicely - show days if >= 24 hours, otherwise show hours
+        if hours_stale >= 24:
+            days = int(hours_stale // 24)
+            remaining_hours = int(hours_stale % 24)
+            if remaining_hours > 0:
+                stale_text = f'{days}d {remaining_hours}h'
+            else:
+                stale_text = f'{days}d'
+        else:
+            stale_text = f'{int(hours_stale)}h'
+        pr_text += f'Author: `{author}` | Stale: *{stale_text}*\n'
         pr_text += f'Reviewers: {reviewer_text}\n'
         pr_text += f'CODEOWNERS: {codeowners_text}'
         
@@ -422,7 +434,14 @@ def load_slack_mapping() -> Dict[str, str]:
 def main():
     """Main function to check for stale PRs and notify Slack."""
     # Get configuration from environment
-    stale_days = int(os.environ.get('STALE_DAYS', '3'))
+    # Support both STALE_HOURS and STALE_DAYS for backward compatibility
+    stale_hours = os.environ.get('STALE_HOURS')
+    if stale_hours:
+        stale_hours = float(stale_hours)
+    else:
+        stale_days = float(os.environ.get('STALE_DAYS', '3'))
+        stale_hours = stale_days * 24  # Convert days to hours
+    
     webhook_url = os.environ.get('SLACK_WEBHOOK_URL')
     
     if not webhook_url:
@@ -436,7 +455,7 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     
-    print(f"Checking for stale PRs in {owner}/{repo_name} (stale = {stale_days}+ days)...")
+    print(f"Checking for stale PRs in {owner}/{repo_name} (stale = {stale_hours}+ hours)...")
     
     # Parse CODEOWNERS
     codeowners_rules = parse_codeowners()
@@ -458,12 +477,12 @@ def main():
         sys.exit(1)
     
     # Filter stale PRs
-    stale_prs = [pr for pr in open_prs if is_pr_stale(pr, stale_days)]
+    stale_prs = [pr for pr in open_prs if is_pr_stale(pr, stale_hours)]
     
     print(f"Found {len(stale_prs)} stale PRs")
     
     # Format and send message
-    message = format_slack_message(stale_prs, stale_days, repo_name, owner, repo_name, codeowners_rules, slack_mapping)
+    message = format_slack_message(stale_prs, stale_hours, repo_name, owner, repo_name, codeowners_rules, slack_mapping)
     
     if post_to_slack(webhook_url, message):
         print("Successfully posted to Slack!")

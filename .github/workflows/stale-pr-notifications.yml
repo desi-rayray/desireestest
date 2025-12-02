@@ -32,7 +32,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          STALE_DAYS: ${{ vars.STALE_DAYS || '3' }}  # Default to 3 days, can be overridden
+          STALE_HOURS: ${{ vars.STALE_HOURS || '' }}  # Set in hours (e.g., '24' for 1 day, '2' for 2 hours)
+          STALE_DAYS: ${{ vars.STALE_DAYS || '3' }}  # Fallback: Default to 3 days if STALE_HOURS not set
           SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL || '#engineering' }}  # Default channel
         run: |
           python .github/scripts/check_stale_prs.py
