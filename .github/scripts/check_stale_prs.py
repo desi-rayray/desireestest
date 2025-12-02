@@ -302,28 +302,18 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         if not reviewers:
             prs_without_reviewers += 1
     
-    # Build header message
-    header_text = f'Stale {filter_text.capitalize()}PRs Alert ({len(stale_prs)} found)'
+    # Build compact header message
+    header_text = f'*{len(stale_prs)} stale {filter_text}PR{"s" if len(stale_prs) != 1 else ""}*'
     if prs_without_reviewers > 0:
-        header_text += f' - {prs_without_reviewers} without reviewers'
+        header_text += f' ({prs_without_reviewers} no reviewers)'
     
     blocks = [
-        {
-            'type': 'header',
-            'text': {
-                'type': 'plain_text',
-                'text': header_text
-            }
-        },
         {
             'type': 'section',
             'text': {
                 'type': 'mrkdwn',
-                'text': f'Found *{len(stale_prs)}* {filter_text}PR{"s" if len(stale_prs) != 1 else ""} in `{repo_name}` that {"have" if len(stale_prs) != 1 else "has"} not been updated in {stale_hours}+ hours.'
+                'text': header_text
             }
-        },
-        {
-            'type': 'divider'
         }
     ]
     
@@ -391,8 +381,8 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         else:
             stale_text = f'{int(hours_stale)}h'
         
-        # Build PR block in requested format
-        pr_text = f'*<{html_url}|PR #{pr_number}: {title}>* | {author_slack_mention} Reviewers: {reviewer_text} | Stale: {stale_text}'
+        # Build compact PR block
+        pr_text = f'<{html_url}|#{pr_number}: {title}> | {author_slack_mention} | {reviewer_text} | {stale_text}h'
         
         blocks.append({
             'type': 'section',
