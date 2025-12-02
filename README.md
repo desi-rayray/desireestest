@@ -351,3 +351,6 @@ your-repo/
 ---
 
 **Questions?**: Refer to the troubleshooting section above or contact the engineering team.
+# Test PR with Reviewer
+
+This PR has a reviewer assigned for testing stale PR notifications.
