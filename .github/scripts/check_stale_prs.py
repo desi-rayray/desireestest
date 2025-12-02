@@ -381,8 +381,8 @@ def format_slack_message(stale_prs: List[Dict], stale_hours: float, repo_name: s
         else:
             stale_text = f'{int(hours_stale)}h'
         
-        # Build compact PR block
-        pr_text = f'<{html_url}|#{pr_number}: {title}> | {author_slack_mention} | {reviewer_text} | {stale_text}h'
+        # Build compact PR block (PR # and link only, no title)
+        pr_text = f'<{html_url}|#{pr_number}> | {author_slack_mention} | {reviewer_text} | {stale_text}h'
         
         blocks.append({
             'type': 'section',
