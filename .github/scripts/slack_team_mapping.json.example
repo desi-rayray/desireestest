@@ -9,9 +9,7 @@
   "Cloud": "S11223344",
   
   "_users": "For GitHub users, map their GitHub username to their Slack user ID",
-  "desi-rayray": "U12345678",
-  "jeffnb": "U87654321",
-  "sphereiam": "U11223344",
+  "desi-rayray": "xxxx",
   
   "_notes": [
     "Slack user group IDs start with 'S'",
